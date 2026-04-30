@@ -1,68 +1,85 @@
 #include "pch.h"
 #include "CppUnitTest.h"
-#include "../modul/VectorUtils.h"  
+#include "../modul 2/WeatherUtils.h" 
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-using namespace std;
 
-namespace UnitTestCpp1
+namespace UnitTest1
 {
-    TEST_CLASS(VectorUtilsTests)
+    TEST_CLASS(WeatherTests)
     {
     public:
 
-        TEST_METHOD(TestNormalCase)
-        {
-            vector<int> vec = { 5, 2, 9, 1, 7 };
-
-            auto result = findMinMax(vec);
-
-            Assert::AreEqual(1, result.first);  // min
-            Assert::AreEqual(9, result.second); // max
+       
+        void createFile(const std::string& filename, const std::string& content) {
+            std::ofstream file(filename);
+            file << content;
+            file.close();
         }
 
-        TEST_METHOD(TestSingleElement)
+        TEST_METHOD(TestReadTSV_Normal)
         {
-            vector<int> vec = { 42 };
+            createFile("test.tsv",
+                "2026-05-01\tLviv\t5\n"
+                "2026-05-02\tLviv\t-2\n"
+                "2026-05-01\tKyiv\t3\n");
 
-            auto result = findMinMax(vec);
+            auto data = readTSV("test.tsv");
 
-            Assert::AreEqual(42, result.first);
-            Assert::AreEqual(42, result.second);
+            Assert::AreEqual((size_t)3, data.size());
+            Assert::AreEqual(std::string("Lviv"), data[0].city);
+            Assert::AreEqual(5.0, data[0].temperature);
         }
 
-        TEST_METHOD(TestNegativeNumbers)
+        TEST_METHOD(TestComputeMinMax)
         {
-            vector<int> vec = { -5, -10, -3 };
+            std::vector<WeatherRecord> data = {
+                {"2026", "Lviv", 5},
+                {"2026", "Lviv", -2},
+                {"2026", "Kyiv", 3},
+                {"2026", "Kyiv", 10}
+            };
 
-            auto result = findMinMax(vec);
+            auto result = computeMinMax(data);
 
-            Assert::AreEqual(-10, result.first);
-            Assert::AreEqual(-3, result.second);
+            Assert::AreEqual(-2.0, result["Lviv"].first);
+            Assert::AreEqual(5.0, result["Lviv"].second);
+
+            Assert::AreEqual(3.0, result["Kyiv"].first);
+            Assert::AreEqual(10.0, result["Kyiv"].second);
         }
 
-        TEST_METHOD(TestMixedNumbers)
+        TEST_METHOD(TestAnomalousTemperatureThrows)
         {
-            vector<int> vec = { -2, 0, 3, -1 };
+            createFile("bad.tsv",
+                "2024-01-01\tLviv\t150\n");
 
-            auto result = findMinMax(vec);
-
-            Assert::AreEqual(-2, result.first);
-            Assert::AreEqual(3, result.second);
-        }
-
-        TEST_METHOD(TestEmptyVectorThrows)
-        {
-            vector<int> vec;
-
-            try
-            {
-                findMinMax(vec);
-                Assert::Fail(L"Expected EmptyContainer exception");
+            try {
+                readTSV("bad.tsv");
+                Assert::Fail(L"Expected out_of_range exception");
             }
-            catch (const EmptyContainer&)
-            {
-                // ок Ч оч≥кувана помилка
+            catch (const std::out_of_range&) {
+                // OK
+            }
+        }
+
+        TEST_METHOD(TestEmptyFile)
+        {
+            createFile("empty.tsv", "");
+
+            auto data = readTSV("empty.tsv");
+
+            Assert::AreEqual((size_t)0, data.size());
+        }
+
+        TEST_METHOD(TestFileNotFound)
+        {
+            try {
+                readTSV("no_file.tsv");
+                Assert::Fail(L"Expected runtime_error");
+            }
+            catch (const std::runtime_error&) {
+                // OK
             }
         }
     };
